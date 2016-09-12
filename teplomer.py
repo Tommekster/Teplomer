@@ -32,11 +32,11 @@ def readSens(retLin=False):
 	ser.close()
 	sens_str = line.decode('utf8')				# preveduje na string
 	sens_str = sens_str.strip('\x00')			# zbavim se patogennich nul, ale nevim, kde se berou
-	sens = sens_str.split('\t')				# rozdelim je podle odradkovani
-	if len(sens) < 9: 					# mam-li mene radku, asi se zrovna Atmel resetuj
+	sens = sens_str.split(' ')				# rozdelim je podle mezer
+	if len(sens) < 5: 					# mam-li mene radku, asi se zrovna Atmel resetuj
 		raise sensorError('Dostal jsem malo dat.',sens)
-	del(sens[-1])						# odstranim stav vytapeni (zatim se nepouzije)
-	return [int(s) for s in sens]
+	del(sens[-1])						# odstranim odradkovani
+	return [int(s) for s in sens]				# prevedu na cislo
 
 class mTime:
 	def __init__(self,_h,_m):
@@ -88,7 +88,28 @@ class mWeek:
 
 class Teplomer:
 	def __init__(self):
-		self.work = False		
+		self.vref = 5.0
+		self.temperatures = [15.0 for i in range(0,4)]
+		self.work = False
+	
+	def refreshTemperature(self):
+		try:
+			sens = readSens()
+		except (sensorError) as e:
+			logCtrl(time.strftime('%d.%m.%Y %H:%M')+' refreshTemperature() Exception: '+str(e))
+			return
+		rawTemps = [s/2.56*self.vref-273 for s in sens] # prepocet napeti z LM335
+		self.temperatures = [t for t in rawTemps]
+		
+	def readVoltage(self):
+		try:
+			sens = readSens()
+		except (sensorError) as e:
+			logCtrl(time.strftime('%d.%m.%Y %H:%M')+' refreshTemperature() Exception: '+str(e))
+			return
+		voltage = [s/256*self.vref for s in sens]
+		return voltage
+	
 	def doYourWork(self):
 		self.work = True
 		cycles = 0
@@ -105,6 +126,8 @@ class Teplomer:
 
 if __name__ == '__main__':
 	#print('Pokus: uvidime, co zmuzeme s kotelnikem.')
-	#t=Teplomer()
+	t=Teplomer()
+	print(t.readVoltage())
+	t.refreshTemperature()
 	#t.doYourWork()
-	print(readSens(True))
+	print(t.temperatures)
